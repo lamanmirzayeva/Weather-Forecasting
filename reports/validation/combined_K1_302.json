@@ -1,0 +1,29 @@
+{
+  "model": "combined_K1_302",
+  "family": "combined",
+  "k": 1,
+  "p": 3,
+  "d": 0,
+  "q": 2,
+  "converged": true,
+  "aic": 6767.777685511273,
+  "params": [
+    9.16048289858837,
+    -3.6953547386450354,
+    -10.290605795056479,
+    -0.03759281215375165,
+    0.44459299541794933,
+    0.053717153623197365,
+    1.013149491085937,
+    0.21511961182631575,
+    5.953374378410456
+  ],
+  "warnings": [
+    "Non-stationary starting autoregressive parameters found. Using zeros as starting parameters.",
+    "Non-invertible starting MA parameters found. Using zeros as starting parameters."
+  ],
+  "ljung_box_p": {
+    "14": 0.3662977728943969,
+    "30": 0.08265531462682595
+  }
+}

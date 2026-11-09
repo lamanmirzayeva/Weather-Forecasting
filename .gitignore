@@ -1,0 +1,10 @@
+__pycache__/
+.venv/
+.ipynb_checkpoints/
+data/raw/
+data/processed/
+.tools/
+paper/*.aux
+paper/*.log
+paper/*.out
+tmp/

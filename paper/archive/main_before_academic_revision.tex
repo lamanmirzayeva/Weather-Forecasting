@@ -1,0 +1,506 @@
+\documentclass{article}
+\usepackage[preprint,nonatbib]{neurips_2025}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath,amssymb,booktabs,graphicx,caption,url,hyperref}
+\hypersetup{colorlinks=true,linkcolor=blue,citecolor=blue,urlcolor=blue}
+\title{Daily Temperature Forecasting\\with Seasonal Regression and ARMA Errors}
+\author{Jiayu \qquad Laman\\CPTS 570 Machine Learning, Fall 2026}
+\begin{document}
+\maketitle
+\begin{abstract}
+We compare seasonal regression with ARMA errors against persistence, independent-
+error seasonal regression, and nonseasonal ARIMA for daily temperature at
+Pullman/Moscow Regional Airport. NOAA GSOD records from 2019--2024 provide
+2,191 observed days. We train on 2019--2022, select using 2023 validation,
+then refit through 2023 and freeze parameters during rolling 2024 testing.
+The selected three-harmonic ARMA(1,1) model has test RMSE of 2.405\,$^\circ$C
+at one day and 4.019\,$^\circ$C at seven days. The latter improves on seasonal
+regression by only 0.015\,$^\circ$C. Its 95\% interval coverage is 93.7\% and
+95.6\%, with weaker winter coverage. Results favor short-term residual modeling
+at one day and reveal limits of constant-variance Gaussian intervals.
+\end{abstract}
+
+\section{Research problem and objectives}
+We forecast daily mean temperature at one eastern Washington station, one and
+seven days ahead, using only station history and known future calendar terms.
+Annual seasonality and recent departures may provide complementary information. We compare their combination with persistence and each component alone.
+Our contribution is a reproducible station-level evaluation of an established method.
+
+\section*{Literature review}
+\textbf{Seasonality and correlated errors.} Hyndman and Athanasopoulos [2]
+describe dynamic harmonic regression, combining Fourier predictors for long
+seasonal periods with ARMA errors for short-term dependence. A small harmonic
+count produces a smooth annual curve, while higher harmonics allow more detail.
+This motivates our annual basis and bounded complexity search. Its fixed
+seasonal shape is also a limitation: annual terms do not anticipate unusual
+weather departures. Our component comparisons test whether residual dynamics
+add useful information at the two forecast horizons.
+
+\textbf{Automatic ARIMA forecasting.} Hyndman and Khandakar [4] present
+automatic univariate forecasting algorithms, including a stepwise ARIMA search.
+Their work motivates systematic comparison of model orders rather than an
+arbitrary single order. We use a small exhaustive grid and chronological
+validation RMSE instead of reproducing their automatic selection procedure.
+This makes the selected complexity auditable and keeps the evaluation aligned
+with our two horizons.
+
+\textbf{Interpretable additive alternatives.} Taylor and Letham [5] propose
+an interpretable modular regression approach for forecasting at scale, with
+trend, seasonal, and holiday components. It shares the aim of separating
+predictable structure from remaining variation. Our study instead focuses
+on explicit ARMA residual dependence and the proposal's component baselines.
+We do not fit Prophet or infer superiority over that broader model family.
+
+\newpage
+\section{Data and preparation}
+\subsection{Dataset and station audit}
+We use NOAA's Global Surface Summary of the Day (GSOD) archive [1], retaining
+records dated January 1, 2019 through December 31, 2024. GSOD daily summaries
+are based on subdaily observations. The target is the reported daily mean
+temperature, not the midpoint of daily minimum and maximum temperatures.
+NOAA documentation defines the daily summaries using Greenwich Mean Time,
+so the forecast calendar here consists of UTC days.
+
+The primary station is Pullman/Moscow Regional Airport: USAF 727857, WBAN
+94129, combined GSOD identifier 72785794129, and ICAO KPUW. The station
+inventory gives latitude 46.744\,$^\circ$N, longitude 117.116\,$^\circ$W, and
+elevation 775.7\,m. We also audited Spokane International Airport
+(72785024157), the proposal's backup. Pullman has 99.954\% temperature coverage,
+which is adequate to retain the preferred station. Spokane has complete coverage,
+but is not used in model comparisons. Station choice is based on availability,
+not test-year forecast performance.
+
+\begin{center}
+\captionof{table}{Chronological partitions at the selected Pullman station.}
+\begin{tabular}{lrrl}
+\toprule
+Partition & Calendar days & Observed & Dates\\
+\midrule
+Training & 1,461 & 1,460 & 2019--2022\\
+Validation & 365 & 365 & 2023\\
+Test & 366 & 366 & 2024\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection{Cleaning and calendar preservation}
+We download station-year CSV files and keep the originals unchanged. Each input
+has its source URL and SHA-256 checksum recorded. The preparation script checks
+station identity and duplicate dates, removes exact duplicates if present, and
+stops on conflicting duplicate observations. There are no duplicate dates in
+the selected station files. The temperature missing-value sentinel is 9999.9;
+no such values appear in the retrieved Pullman records. The
+\texttt{TEMP\_ATTRIBUTES} column is an observation count, not a quality flag.
+No supplied Pullman mean has a nonpositive count. Other source attributes remain
+available in the raw files.
+
+Temperatures are converted by $C=(F-32)5/9$. We reindex onto the full daily
+calendar, preserving leap days and the single absent observation on December 31,
+2021. We do not interpolate, smooth, or carry forward that value. State-space
+models can propagate the state across an unobserved measurement; independent
+seasonal regression uses the observed values. Missing forecast targets would
+be excluded from scoring. Both validation and test targets are complete.
+
+\begin{center}
+\includegraphics[width=\linewidth]{figures/data.pdf}
+\captionof{figure}{Daily temperatures and the fixed evaluation partitions.
+The strong annual cycle motivates known future calendar predictors.}
+\end{center}
+
+\newpage
+\section{Forecasting models}
+\subsection{Seasonal regression with ARMA/ARIMA errors}
+Let $t$ be elapsed calendar days since January 1, 2019. For a fixed annual
+period $P=365.25$, the model is
+\begin{align}
+y_t &= s_t+u_t,\\
+s_t &= \beta_0+\sum_{k=1}^{K}\left[
+a_k\sin\left(\frac{2\pi kt}{P}\right)+
+b_k\cos\left(\frac{2\pi kt}{P}\right)\right].\label{eq:season}
+\end{align}
+Each pair adds an interpretable harmonic with period $P/k$.
+The fixed fractional period approximates a year; it is not an exact calendar
+anniversary transformation. Computing features from elapsed dates avoids
+resetting phase at split boundaries or compressing time at missing observations.
+The seasonal coefficients remain fixed during evaluation.
+
+The residual process satisfies
+\begin{equation}
+\phi(B)(1-B)^d u_t=\theta(B)\varepsilon_t,
+\quad \varepsilon_t\sim\mathcal{N}(0,\sigma^2),
+\end{equation}
+where $B$ is the lag operator,
+$\phi(B)=1-\sum_{j=1}^{p}\phi_jB^j$, and
+$\theta(B)=1+\sum_{j=1}^{q}\theta_jB^j$.
+For $d=0$, these are ARMA$(p,q)$ errors. If residual nonstationarity justified
+$d=1$, the redundant regression intercept would be omitted. This follows the
+proposal's dynamic harmonic regression formulation [2]. In the implemented
+combined-model search, training stationarity checks support $d=0$.
+
+We estimate regression and error parameters jointly by maximum likelihood using
+\texttt{statsmodels} SARIMAX [3]. The Fourier matrix includes its own intercept,
+so the combined model uses no additional SARIMAX trend. Stationarity and
+invertibility constraints are enabled. For a future date, Fourier features are
+known, while the residual mean is forecast recursively. Thus
+\begin{equation}
+\widehat y_{t+h\mid t}=\widehat s_{t+h}+\widehat u_{t+h\mid t}.
+\end{equation}
+Prediction intervals come from the state-space forecast distribution conditional
+on the estimated parameters. They represent uncertainty in a future temperature
+observation, rather than a confidence interval for the seasonal mean alone.
+
+\subsection{Component comparisons}
+\textbf{Persistence} predicts $\widehat y_{t+h\mid t}=y_t$ for either horizon.
+It measures how much a model improves over repeating the latest observed
+temperature. All evaluated origins have observed temperatures.
+
+\textbf{Seasonal regression} uses Equation~\ref{eq:season} with independent
+Gaussian errors, implemented as ARIMA$(0,0,0)$ errors. It captures annual
+structure but cannot use recent departures from the seasonal mean.
+
+\textbf{Nonseasonal ARIMA} uses no Fourier terms. We search $p,q=0,1,2,3$
+and $d=0,1$. A constant is included when $d=0$ and omitted when $d=1$;
+there is no drift in the differenced candidates. This comparison tests whether
+short-term dependence without explicit annual terms is sufficient.
+
+The \textbf{combined model} uses both components. Its search includes
+ARMA$(0,0)$, deliberately nesting the independent-error seasonal model.
+This overlap allows the comparison to reveal whether residual dependence is
+useful, rather than forcing it into the selected specification.
+
+\subsection{Selected model after the final refit}
+The selected $K=3$ model refitted through 2023 has seasonal intercept
+9.254\,$^\circ$C, $\widehat\phi_1=0.621$, $\widehat\theta_1=0.358$, and
+$\widehat\sigma^2=5.623$\,$^\circ$C$^2$. For ARMA(1,1), residual mean forecasts
+beyond the first step decay by successive powers of $\widehat\phi_1$.
+Recent residual information therefore has much less influence at seven days.
+All fitted coefficients are saved in the reproducibility artifacts and held
+fixed throughout the test.
+
+\newpage
+\section{Experimental protocol}
+\subsection{Chronological validation and model selection}
+The initial fit uses 2019--2022. We assess candidate forecasts at daily origins
+through 2023, keeping fitted parameters fixed while updating states. The first
+origin is December 31, 2022. A forecast is scored only if its target falls in
+2023. Consequently there are 365 one-day and 359 seven-day forecasts; the first
+seven-day target is January 7. All models use these same origin--target pairs.
+
+We search $K\in\{1,2,3\}$ and $p,q\in\{0,1,2,3\}$ for combined models.
+Training ordinary seasonal-regression residuals are checked with augmented
+Dickey--Fuller and KPSS tests. We consider $d=1$ for a harmonic count only if
+ADF does not reject a unit root at 5\% and KPSS rejects level stationarity at
+5\%. No harmonic count satisfies both conditions. This results in 48 combined
+candidates, three independent-error seasonal candidates, and 32 nonseasonal
+ARIMA candidates: 83 fits in total. All converge. These stationarity checks
+are preliminary diagnostics; their residual input drops the single missing
+training value and therefore closes one calendar gap. The likelihood fits and
+forecast calendars preserve that gap.
+
+The proposal leaves cross-horizon model selection unspecified. We choose one
+specification per family by minimizing the equal-weight mean of the two
+validation RMSE values:
+\begin{equation}
+S(m)=\tfrac12\left(\operatorname{RMSE}_{1}(m)+
+\operatorname{RMSE}_{7}(m)\right).
+\end{equation}
+Both terms use Celsius, so no scale normalization is required. This choice
+avoids a different model for every horizon while making the tradeoff explicit.
+We record AIC, convergence warnings, parameters, and residual checks, but AIC
+does not determine the selected family specifications. Nonconverged fits would
+be excluded. The optimizer uses up to 300 iterations with a Powell-assisted
+retry if needed, followed by another likelihood optimization.
+
+\subsection{Frozen test and information availability}
+After validation, each selected model is refitted on 2019--2023. Model orders
+are saved before test evaluation. Parameters are frozen for 2024; state updates
+do not change regression or ARMA coefficients. At each origin, the evaluator:
+\begin{enumerate}
+\item forms known future Fourier terms and predicts up to seven days ahead;
+\item saves the exact one-day and seven-day predictions and intervals;
+\item reveals the next daily temperature and filters the state forward;
+\item advances one calendar day and repeats, without parameter refitting.
+\end{enumerate}
+The test begins at the December 31, 2023 origin and contains 366 one-day and
+360 seven-day forecasts. No intervening observation enters an earlier seven-day
+forecast. We assume completed daily summaries are available after each UTC day;
+actual data-publication delays are not represented.
+
+\subsection{Metrics and verification}
+For errors $e_i=\widehat y_i-y_i$ over $n$ eligible targets, we report
+$\operatorname{RMSE}=\sqrt{n^{-1}\sum_i e_i^2}$ and
+$\operatorname{MAE}=n^{-1}\sum_i|e_i|$ separately by horizon.
+For the combined model, coverage is $n^{-1}\sum_i\mathbf{1}\{L_i\leq y_i\leq U_i\}$
+and mean width is $n^{-1}\sum_i(U_i-L_i)$ for nominal 95\% intervals.
+Protocol checks verify date alignment and common targets, and confirm that
+altering future values does not affect forecasts already issued.
+
+\newpage
+\section{Validation results and selected specifications}
+Table~\ref{tab:validation} reports the selected model from each family. Seasonal
+regression selects three Fourier pairs. The nonseasonal baseline selects
+ARIMA$(3,0,3)$, while the combined model selects three pairs with
+ARMA$(1,1)$ errors. The latter has seven seasonal coefficients, two error
+coefficients, and an innovation variance. The search therefore selects a compact
+residual model instead of the maximum permitted ARMA orders.
+
+\begin{center}
+\captionof{table}{2023 validation metrics. Each model is fitted on 2019--2022.
+One-day metrics use 365 targets and seven-day metrics use 359.}
+\label{tab:validation}
+\begin{tabular}{lrrrr}
+\toprule
+& \multicolumn{2}{c}{One day} & \multicolumn{2}{c}{Seven days}\\
+Model & RMSE & MAE & RMSE & MAE\\
+\midrule
+Persistence & 2.441 & 1.881 & 5.248 & 4.039\\
+Seasonal ($K=3$) & 3.661 & 2.896 & \textbf{3.672} & \textbf{2.903}\\
+ARIMA$(3,0,3)$ & 2.259 & 1.763 & 4.457 & 3.429\\
+Combined ($K=3$, ARMA$(1,1)$) & \textbf{2.169} & \textbf{1.703} & 3.677 & 2.906\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+At one day, persistence already outperforms the calendar-only forecast,
+indicating that recent conditions contain useful information. Nonseasonal ARIMA
+improves on persistence, and adding explicit seasonality improves further. The
+combined model's one-day RMSE is 2.169\,$^\circ$C. At seven days, however,
+seasonal regression has marginally lower RMSE than the combined model:
+3.672 versus 3.677\,$^\circ$C. Seasonal structure is more useful at this horizon
+than repeating current temperature or relying on the nonseasonal dynamics.
+
+The equal-weight cross-horizon criterion selects the combined specification
+within its family, but the table does not imply that residual dynamics improve
+every horizon. The two seasonal models are practically very close at seven
+days. This distinction is central to the research question: the evidence for
+combining components is strongest at the short horizon.
+
+Training ADF p-values for the three seasonal residual series range from about
+$1.2\times10^{-14}$ to $4.5\times10^{-12}$. KPSS reports 0.1 for each;
+this is a lookup-table bound, not an exact p-value. These checks support the
+decision to omit differencing in the combined-model search.
+
+\begin{center}
+\includegraphics[width=\linewidth]{figures/acf.pdf}
+\captionof{figure}{ACF and PACF of the selected combined model's standardized
+training innovations. The longest continuous observed segment is used after
+a 30-day burn-in. Shading is the plotting routine's nominal pointwise band.}
+\label{fig:acf}
+\end{center}
+
+For that continuous segment, Ljung--Box p-values are 0.517 at lag 14 and 0.169
+at lag 30, adjusting degrees of freedom by $p+q$. Remaining correlations are
+small in Figure~\ref{fig:acf}, although pointwise bands are not simultaneous
+tests over all plotted lags. These results motivate proceeding with the selected
+model; they do not establish Gaussianity or constant variance.
+
+\newpage
+\section{Held-out point forecast performance}
+Table~\ref{tab:test} gives the primary 2024 test results after the one-time
+2019--2023 refit. The combined model has the lowest observed RMSE and MAE at
+both horizons. Its one-day RMSE is 2.405\,$^\circ$C, compared with 2.578 for
+persistence, 4.003 for seasonal regression, and 2.486 for nonseasonal ARIMA.
+The combined model thus retains the validation pattern of benefiting from
+both the annual mean and recent residual behavior at one day.
+
+\begin{center}
+\captionof{table}{2024 held-out point forecast metrics in Celsius. The common
+sample has 366 one-day and 360 seven-day targets. Bold indicates the minimum
+within each column; it does not indicate a significance test.}
+\label{tab:test}
+\begin{tabular}{lrrrr}
+\toprule
+& \multicolumn{2}{c}{One day} & \multicolumn{2}{c}{Seven days}\\
+Model & RMSE & MAE & RMSE & MAE\\
+\midrule
+Persistence & 2.578 & 1.978 & 5.556 & 4.371\\
+Seasonal & 4.003 & 2.995 & 4.034 & 3.028\\
+Nonseasonal ARIMA & 2.486 & 1.932 & 4.903 & 3.787\\
+Combined & \textbf{2.405} & \textbf{1.815} & \textbf{4.019} & \textbf{3.022}\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+Relative to persistence, the combined model reduces test RMSE by approximately
+6.7\% at one day and 27.7\% at seven days. Relative to nonseasonal ARIMA,
+the reductions are about 3.2\% and 18.0\%. The much larger seven-day gain over
+persistence should not be attributed wholly to ARMA errors: seasonal regression
+alone already produces nearly the same seven-day accuracy as the combined model.
+
+At seven days, the combined RMSE is 4.019\,$^\circ$C and seasonal regression
+is 4.034\,$^\circ$C. The unrounded difference is about 0.015\,$^\circ$C,
+or 0.37\% of the seasonal baseline's RMSE. MAE differs by only about
+0.005\,$^\circ$C. This is a small descriptive advantage, and validation had
+ranked those two models in the opposite order. We therefore do not interpret
+the held-out ordering as strong evidence that short-term dynamics materially
+improve seven-day forecasting.
+
+\begin{center}
+\includegraphics[width=\linewidth]{figures/accuracy.pdf}
+\captionof{figure}{Test RMSE by model and horizon. Explicit annual seasonality
+is particularly valuable for seven-day forecasts; residual dynamics substantially
+improve on calendar-only regression at one day.}
+\end{center}
+
+The comparisons are made on identical dates, so differences are not caused by
+models receiving easier target subsets. Nevertheless, this is a single test
+year at one station. We do not compute significance tests or treat overlapping
+seven-day errors as independent samples. Claims concern observed forecast
+accuracy under this fixed protocol, rather than universal superiority.
+
+\newpage
+\section{Prediction intervals and residual diagnostics}
+\begin{center}
+\captionof{table}{Combined-model nominal 95\% prediction intervals in the 2024
+test. Width is measured in Celsius. Coverage is empirical over observed targets.}
+\begin{tabular}{lrrr}
+\toprule
+Horizon & Targets & Coverage & Mean width\\
+\midrule
+One day & 366 & 93.7\% & 9.295\\
+Seven days & 360 & 95.6\% & 14.856\\
+\bottomrule
+\end{tabular}
+\end{center}
+
+The seven-day intervals are wider because uncertainty accumulates as recent
+residual information becomes less informative. Their average coverage is close
+to nominal. One-day intervals cover only 93.7\% of targets, so improved point
+accuracy does not establish complete calibration. Coverage and width must be
+read together: wide intervals can achieve high coverage without being useful,
+while narrow intervals may miss important temperature departures.
+
+\begin{center}
+\includegraphics[width=\linewidth]{figures/forecasts.pdf}
+\captionof{figure}{Rolling test predictions and conditional 95\% intervals.
+Each plotted forecast is issued at its own origin; these curves are not a
+single forecast issued at the start of 2024. The seven-day forecast closely
+tracks the seasonal mean and misses the sharp January cold departure.}
+\end{center}
+
+The refitted combined model has Ljung--Box p-values 0.459 and 0.158 at lags
+14 and 30, respectively. These diagnostics use the longest uninterrupted
+observed residual segment, 1,065 days after handling the initial burn-in and
+the missing day. However, Jarque--Bera rejects normality
+($p\approx5.1\times10^{-13}$), and an ARCH LM test with 14 lags gives
+$p=0.025$, suggesting changing conditional variance. Thus removing much of
+the serial mean dependence does not remove all distributional structure.
+
+The reported Gaussian intervals condition on fitted coefficients and omit
+parameter uncertainty. We retain these intervals to evaluate the proposed
+method faithfully, rather than recalibrating them using held-out outcomes.
+Distributional extensions would require a new validation protocol.
+
+\newpage
+\section{Seasonal behavior and practical limitations}
+\subsection{Errors vary across target-date seasons}
+We group test targets into December--February (DJF), March--May (MAM),
+June--August (JJA), and September--November (SON). DJF combines January and
+February 2024 with December 2024; it is a seasonal category, not a single
+contiguous winter episode. There are 91, 92, 92, and 91 one-day targets in
+these groups. The seven-day winter group has 85 targets because the first
+six January dates are not seven-day targets under our origin rule.
+
+\begin{center}
+\includegraphics[width=\linewidth]{figures/seasons.pdf}
+\captionof{figure}{Target-season RMSE. Winter is the most difficult season
+at both horizons. Lines connect seasonal categories for readability and do not
+represent an interpolated time series or confidence intervals.}
+\end{center}
+
+For the combined model, winter RMSE is 2.794\,$^\circ$C at one day and
+5.616\,$^\circ$C at seven days. The seven-day RMSE is 3.534 in spring,
+3.579 in summer, and 2.977 in autumn. The full-year score therefore hides
+substantial seasonal variation. The sharp January cold departure visible in
+the forecast plot contributes to the winter difficulty, but this descriptive
+analysis does not establish a causal explanation for every error.
+
+Winter combined-model interval coverage is 91.2\% at one day and 87.1\%
+at seven days, considerably below the nominal 95\%. Seven-day coverage in
+spring, summer, and autumn is 98.9\%, 96.7\%, and 98.9\%, respectively.
+Near-nominal aggregate coverage consequently combines winter undercoverage
+with relatively high coverage elsewhere. For outdoor operations, aggregate
+calibration alone would be insufficient to assess risk during cold episodes.
+
+\subsection{What this experiment can and cannot establish}
+The forecast uses station history and calendar information only. It cannot
+anticipate a changing atmospheric regime from meteorological predictors because
+none are supplied. This makes it a transparent statistical benchmark, but not
+a replacement for a comprehensive operational weather forecast. We do not
+compare against numerical weather prediction or claim operational superiority.
+
+The data scope is six years, with four years in the initial fit and one year
+each for selection and testing. A single station limits geographic
+generalization. Station changes, reporting changes, or a different run of weather
+could affect performance; we audit coverage but do not independently validate
+every source measurement. The fixed annual curve also does not model a secular
+climate trend or year-specific seasonal shifts.
+
+The frozen-parameter test isolates state adaptation from re-estimation, but it
+does not show whether periodic parameter refitting would help. Our results
+also assume completed daily observations are available immediately at the
+origin. A deployed system would need to align origins with actual publication
+times. These constraints should accompany any use of the forecasts for planning.
+
+\newpage
+\section{Reproducibility and conclusion}
+\subsection{Artifacts and executable checks}
+The project includes scripts for the station audit, validation search, frozen
+test, and result summaries, plus an executed demonstration notebook.
+Raw NOAA station-year files are cached locally. Download manifests record URLs
+and checksums; reproduction hashes identify the processed data, analysis code,
+protocol, and metric table. Saved candidate forecasts and JSON parameter records
+make the selected results inspectable without rerunning the entire search.
+The recorded analysis environment uses Python 3.13.12, NumPy 2.4.3,
+pandas 3.0.1, statsmodels 0.14.6, and Matplotlib 3.10.8.
+
+The notebook reconstructs a historical forecast using frozen parameters and
+only observations through a selected origin, then checks both point forecasts
+and interval endpoints against the saved rolling evaluation. Protocol tests
+verify consistent Fourier phase across a leap day, exact horizon offsets,
+unchanged fitted parameters, and insensitivity of earlier forecasts to changed
+future observations. All ten notebook code cells execute successfully. These
+checks verify implementation properties; they do not establish generalization
+beyond the evaluated dataset. Code is prepared locally; public GitHub hosting
+remains a separate deliverable.
+
+\subsection{Conclusion}
+Combining annual Fourier regression with ARMA(1,1) errors yields the lowest
+observed one-day validation and test RMSE among the compared models.
+At seven days, explicit annual seasonality provides nearly all of the advantage
+over persistence and nonseasonal ARIMA; the combined model's small test gain
+over seasonal regression should be interpreted cautiously. Thus the answer to
+the project question depends on horizon rather than supporting an unqualified
+benefit from additional dynamics.
+
+Prediction intervals reveal a second distinction. Good average performance
+does not guarantee reliable uncertainty during difficult periods: winter
+coverage is poor even when annual seven-day coverage is near 95\%. Residual
+nonnormality and changing variance provide diagnostic reasons to investigate
+more flexible uncertainty models in future work. Such extensions, additional
+stations, and repeated future-year evaluation would require new validation
+rather than tuning to the completed 2024 test.
+
+\section*{References}
+\raggedright
+\begin{enumerate}
+\item NOAA National Centers for Environmental Information. \emph{Global Surface
+Summary of the Day (GSOD)}. Dataset and field documentation.
+\url{https://www.ncei.noaa.gov/data/global-summary-of-the-day/access/};
+\url{https://www.ncei.noaa.gov/data/global-summary-of-the-day/doc/readme.txt}.
+\item R. J. Hyndman and G. Athanasopoulos. \emph{Forecasting: Principles and
+Practice}, 3rd ed. OTexts, 2021. Chapter 10, Dynamic regression models,
+including dynamic harmonic regression.
+\url{https://otexts.com/fpp3/dynamic-regression.html}.
+\item The statsmodels Developers. \emph{SARIMAX: State-Space Time-Series
+Modeling}, version 0.14.6. Model and forecast-state update documentation.
+\url{https://www.statsmodels.org/v0.14.6/generated/statsmodels.tsa.statespace.sarimax.SARIMAX.html}.
+\item R. J. Hyndman and Y. Khandakar. Automatic time series forecasting:
+the forecast package for R. \emph{Journal of Statistical Software}, 27(3):1--22,
+2008. \url{https://doi.org/10.18637/jss.v027.i03}.
+\item S. J. Taylor and B. Letham. Forecasting at scale.
+\emph{The American Statistician}, 72(1):37--45, 2018.
+\url{https://doi.org/10.1080/00031305.2017.1380080}.
+\end{enumerate}
+\end{document}

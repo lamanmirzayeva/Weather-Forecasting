@@ -1,0 +1,7 @@
+{
+  "data/processed/72785794129_daily.csv": "9cc2f7d3b928273d31358c9feaa9f164a6ec03d782a5a89c37bbd9f0c2064f73",
+  "scripts/validate_models.py": "5c7fc1117e8f3a39a2e2b4d9cf62ba57922ead279079e1c713c2c8c3e231e658",
+  "scripts/evaluate_test.py": "91a17328c773c8ee6f8b65e2440a91ddd07b6c64a64323bc5d93a29ef6011ed9",
+  "reports/test/frozen_protocol.json": "9e8d5bc525fde6e27f23ca3b6fe3d9e447e0371e6be3228380b6ffda53564760",
+  "reports/test/test_metrics.csv": "6057a91baa7065944cb15089be9e7d840dfceaeba151c1c177e36e00eba60531"
+}

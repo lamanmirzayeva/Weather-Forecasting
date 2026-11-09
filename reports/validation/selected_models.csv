@@ -1,0 +1,5 @@
+family,model,mean_validation_rmse
+arima,arima_K0_303,3.3580063730244074
+combined,combined_K3_101,2.9231195001922314
+persistence,persistence,3.8448176865313215
+seasonal,seasonal_K3_000,3.666320922306942

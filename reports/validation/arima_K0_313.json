@@ -1,0 +1,27 @@
+{
+  "model": "arima_K0_313",
+  "family": "arima",
+  "k": 0,
+  "p": 3,
+  "d": 1,
+  "q": 3,
+  "converged": true,
+  "aic": 6820.086861720714,
+  "params": [
+    0.24793022996972908,
+    0.27672207466605014,
+    -0.1263743920304785,
+    -0.23021508109712685,
+    -0.6005951880952858,
+    0.0481317238426941,
+    6.209783444121362
+  ],
+  "warnings": [
+    "Non-stationary starting autoregressive parameters found. Using zeros as starting parameters.",
+    "Non-invertible starting MA parameters found. Using zeros as starting parameters."
+  ],
+  "ljung_box_p": {
+    "14": 0.39590019490171013,
+    "30": 0.03653634797052176
+  }
+}

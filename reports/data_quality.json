@@ -1,0 +1,40 @@
+[
+  {
+    "station": "72785794129",
+    "duplicate_dates_in_raw": 0,
+    "missing_temperature_sentinels": 0,
+    "invalid_observation_counts": 0,
+    "missing_observation_counts_with_temperature": 0,
+    "attribute_columns": [
+      "TEMP_ATTRIBUTES",
+      "DEWP_ATTRIBUTES",
+      "SLP_ATTRIBUTES",
+      "STP_ATTRIBUTES",
+      "VISIB_ATTRIBUTES",
+      "WDSP_ATTRIBUTES",
+      "MAX_ATTRIBUTES",
+      "MIN_ATTRIBUTES",
+      "PRCP_ATTRIBUTES"
+    ],
+    "note": "Retain other variable attributes in raw files; no imputation."
+  },
+  {
+    "station": "72785024157",
+    "duplicate_dates_in_raw": 0,
+    "missing_temperature_sentinels": 0,
+    "invalid_observation_counts": 0,
+    "missing_observation_counts_with_temperature": 0,
+    "attribute_columns": [
+      "TEMP_ATTRIBUTES",
+      "DEWP_ATTRIBUTES",
+      "SLP_ATTRIBUTES",
+      "STP_ATTRIBUTES",
+      "VISIB_ATTRIBUTES",
+      "WDSP_ATTRIBUTES",
+      "MAX_ATTRIBUTES",
+      "MIN_ATTRIBUTES",
+      "PRCP_ATTRIBUTES"
+    ],
+    "note": "Retain other variable attributes in raw files; no imputation."
+  }
+]
