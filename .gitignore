@@ -8,3 +8,10 @@ paper/*.aux
 paper/*.log
 paper/*.out
 tmp/
+presentation/beamer/*.aux
+presentation/beamer/*.log
+presentation/beamer/*.nav
+presentation/beamer/*.snm
+presentation/beamer/*.out
+presentation/beamer/*.toc
+presentation/beamer/main.pdf

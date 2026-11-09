@@ -120,20 +120,22 @@ See `paper/README.md` for build steps and formatting assumptions, and
 
 ## Presentation
 
-The live editable presentation has 12 slides, covering objectives, literature,
-data, methods, validation, test results, uncertainty, the Python demo, and future
-work. Its timed notes reserve nine minutes for narration and one minute for the
-notebook demonstration. A copy of the rehearsal notes is in
-`presentation/speaker-notes.md`. The source authoring module is
-`presentation/build.mjs`; it uses the artifact presentation API, not the Python
-forecasting pipeline. All forecasting implementations are Python.
+The current design is a 12-slide Washington State University styled LaTeX
+Beamer presentation: `output/presentation/CPTS570_WSU_Beamer_Presentation.pdf`.
+The editable source, plot data, and build instructions are in
+`presentation/beamer/`. It covers objectives, literature, data, methods,
+validation, test results, uncertainty, the Python demo, and future work.
+Timed notes reserve nine minutes for narration and one minute for the notebook
+demonstration. Rehearsal notes are also in `presentation/speaker-notes.md`.
+The preceding PowerPoint/live design is retained as a previous version.
+All forecasting implementations are Python.
 
 GitHub repository: https://github.com/lamanmirzayeva/Weather-Forecasting
 
 ## Submission handoff
 
 `output/submission/CPTS570_Submission_Package.zip` contains the current paper,
-an exported PowerPoint, executed notebook, Python code, results, and cached NOAA
+the WSU Beamer presentation and source, executed notebook, Python code, results, and cached NOAA
 inputs. It excludes the local environment, compiler, Git metadata, and obsolete
 PDF drafts. Read `SUBMISSION_README.md` for the recommended review order,
 offline reproduction, and unresolved course-specific details.

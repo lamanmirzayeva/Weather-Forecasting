@@ -2,6 +2,7 @@
 from pathlib import Path
 import hashlib
 import json
+import re
 import xml.etree.ElementTree as ET
 import zipfile
 
@@ -71,8 +72,22 @@ def verify_powerpoint():
             assert len(text)>100, name
 
 
+def verify_presentation():
+    pdf = ROOT/'output/presentation/CPTS570_WSU_Beamer_Presentation.pdf'
+    if not pdf.exists():
+        return verify_powerpoint()
+    assert pdf.read_bytes().startswith(b'%PDF-')
+    folder = ROOT/'presentation/beamer'
+    source = (folder/'main.tex').read_text()
+    assert len(re.findall(r'\\begin\{frame\}',source))==12
+    assert len(re.findall(r'\\end\{frame\}',source))==12
+    assert len(re.findall(r'\\note\{',source))==12
+    for name in ['monthly_temperature.csv','test_rmse.csv','seasonal_rmse.csv','demo_forecast.png']:
+        assert (folder/'assets'/name).exists()
+
+
 if __name__ == '__main__':
-    for check in (verify_hashes,verify_forecasts,verify_notebook,verify_powerpoint):
+    for check in (verify_hashes,verify_forecasts,verify_notebook,verify_presentation):
         check()
         print(check.__name__, 'passed')
     print('Saved handoff checks passed; these checks do not constitute a course submission or human rehearsal.')

@@ -14,7 +14,7 @@ def selected_files():
         'scripts': {'.py'}, 'notebooks': {'.ipynb','.md'},
         'reports': {'.csv','.json','.md','.txt','.png'},
         'paper': {'.tex','.sty','.pdf','.md'},
-        'presentation': {'.mjs','.md'}, 'data': {'.csv','.txt'},
+        'presentation': {'.mjs','.md','.tex','.csv','.png','.py'}, 'data': {'.csv','.txt'},
     }
     for folder, suffixes in extensions.items():
         for p in (ROOT/folder).rglob('*'):
@@ -23,8 +23,10 @@ def selected_files():
                     continue
                 selected.append(p)
     selected = [p for p in selected if p.name != 'github_payload.py']
-    selected.extend([ROOT/'output/pdf/CPTS570_Temperature_Forecasting_Academic_Revision.pdf',
-                     ROOT/'output/presentation/CPTS570_Temperature_Forecasting_Presentation.pptx'])
+    selected.append(ROOT/'output/pdf/CPTS570_Temperature_Forecasting_Academic_Revision.pdf')
+    beamer = ROOT/'output/presentation/CPTS570_WSU_Beamer_Presentation.pdf'
+    selected.append(beamer if beamer.exists() else
+                    ROOT/'output/presentation/CPTS570_Temperature_Forecasting_Presentation.pptx')
     return sorted(set(selected),key=lambda p:p.relative_to(ROOT).as_posix())
 
 

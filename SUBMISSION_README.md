@@ -7,8 +7,10 @@ Authors currently appear as **Jiayu and Laman**, matching the proposal.
 1. **Paper:** `output/pdf/CPTS570_Temperature_Forecasting_Academic_Revision.pdf`.
    Nine pages total, including references, using the supplied NeurIPS 2025 style.
    Editable source: `paper/main.tex`.
-2. **Presentation:** `output/presentation/CPTS570_Temperature_Forecasting_Presentation.pptx`.
-   Twelve slides with editable evidence and speaker notes. The plan allocates
+2. **Presentation:** `output/presentation/CPTS570_WSU_Beamer_Presentation.pdf`.
+   Twelve WSU-styled Beamer slides. Editable source and plot data are in
+   `presentation/beamer/`; speaker notes are embedded in `main.tex`.
+   The plan allocates
    nine minutes to narration and one minute to the notebook demonstration.
 3. **Python code and demo:** `scripts/` and
    `notebooks/temperature_forecasting_demo.ipynb`. Run instructions are in
@@ -58,7 +60,7 @@ requires a separate LaTeX installation and is not needed to execute the analysis
 - Include the repository URL with the course submission:
   https://github.com/lamanmirzayeva/Weather-Forecasting.
 
-The paper, notebook, PowerPoint, and package have not been submitted to the course.
+The paper, notebook, Beamer presentation, and package have not been submitted to the course.
 The preceding paper draft is excluded from this ZIP to avoid version confusion.
 The ZIP excludes the Python environment, downloaded compiler, Git metadata,
 intermediate renders, and the ZIP itself. `MANIFEST.sha256` records every payload

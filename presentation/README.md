@@ -1,8 +1,12 @@
 # CPTS 570 presentation
 
-Live editable artifact: `artifact_f0dDQGV9HyRLaJAeJcng7MuhuLe4Z7dc`.
+Current design: `beamer/main.tex`, with final PDF at
+`output/presentation/CPTS570_WSU_Beamer_Presentation.pdf`.
+See `beamer/README.md` for build instructions and WSU brand references.
 
-The deck contains 12 slides with editable text, tables, and charts. Speaker notes
+Previous live design: `artifact_f0dDQGV9HyRLaJAeJcng7MuhuLe4Z7dc`.
+
+The current deck contains 12 Beamer slides with editable equations and plot data. Speaker notes
 include timings, source citations, and a short notebook demonstration. Read
 `speaker-notes.md` when rehearsing without the slide viewer.
 
